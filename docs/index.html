@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Team 16 — Seasonality-Aware Weather Anomaly Detection</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
+  :root{
+    --bg:#fafaf7;
+    --panel:#ffffff;
+    --ink:#1a1a1a;
+    --ink-soft:#555;
+    --line:#e4e2dc;
+    --accent:#143d6b;
+    --accent-soft:#e8eef6;
+    --flag:#c0392b;
+    --flag-soft:#fdecea;
+    --chicago:#d62728;
+    --nyc:#1f77b4;
+    --la:#ff7f0e;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:'Iowan Old Style','Georgia',serif;-webkit-font-smoothing:antialiased;}
+  a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(20,61,107,.3);}
+  a:hover{border-bottom-color:var(--accent);}
+  .wrap{max-width:1080px;margin:0 auto;padding:36px 28px 80px;}
+  header{border-bottom:1px solid var(--line);padding-bottom:28px;margin-bottom:36px;}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);}
+  h1{font-size:30px;line-height:1.2;margin:6px 0 6px;font-weight:600;letter-spacing:-.01em;}
+  .sub{color:var(--ink-soft);font-size:15px;margin:0 0 14px;}
+  .meta{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--ink-soft);font-family:var(--mono);}
+  .meta a{color:var(--ink-soft);}
+  section{margin:48px 0 0;}
+  h2{font-size:20px;font-weight:600;margin:0 0 10px;letter-spacing:-.01em;}
+  h2 .num{font-family:var(--mono);font-weight:500;color:var(--ink-soft);margin-right:10px;font-size:13px;}
+  .lede{font-size:15.5px;line-height:1.65;color:var(--ink);margin:0 0 6px;max-width:72ch;}
+  .lede.soft{color:var(--ink-soft);}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:22px;}
+  .controls{display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin:14px 0 18px;}
+  .group{display:flex;flex-direction:column;gap:6px;}
+  .group .label{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-soft);}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden;background:#fff;}
+  .seg button{appearance:none;border:0;background:transparent;padding:7px 14px;font-family:inherit;font-size:14px;color:var(--ink);cursor:pointer;border-right:1px solid var(--line);}
+  .seg button:last-child{border-right:0;}
+  .seg button.on{background:var(--accent);color:#fff;}
+  .seg button:not(.on):hover{background:#f0eee7;}
+  .chart-box{position:relative;height:380px;}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:16px 0 0;}
+  .stat{background:#fff;border:1px solid var(--line);padding:14px 16px;border-radius:4px;}
+  .stat .k{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-soft);margin-bottom:6px;}
+  .stat .v{font-size:22px;font-weight:600;color:var(--ink);letter-spacing:-.01em;}
+  .stat .vsmall{font-size:15px;color:var(--ink-soft);font-family:var(--mono);}
+  .two{display:grid;grid-template-columns:1.3fr 1fr;gap:24px;}
+  @media(max-width:820px){ .two{grid-template-columns:1fr;} .stats{grid-template-columns:repeat(2,1fr);} }
+  table{width:100%;border-collapse:collapse;font-size:14px;}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);}
+  th{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);font-weight:500;}
+  td.mono{font-family:var(--mono);font-size:13px;}
+  .agreement{width:100%;border-collapse:collapse;font-size:14px;}
+  .agreement th,.agreement td{text-align:center;padding:10px;border:1px solid var(--line);}
+  .agreement th{background:#f6f4ef;}
+  .agreement td.cell{font-family:var(--mono);color:var(--ink);}
+  .pill{display:inline-block;padding:1px 8px;border:1px solid var(--line);border-radius:999px;font-size:11px;font-family:var(--mono);color:var(--ink-soft);background:#fff;margin-left:6px;vertical-align:2px;}
+  .arch{width:100%;max-width:820px;border:1px solid var(--line);border-radius:4px;padding:10px;background:#fff;}
+  footer{margin-top:64px;padding-top:22px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-soft);font-family:var(--mono);}
+  .callout{border-left:3px solid var(--accent);padding:2px 0 2px 14px;color:var(--ink-soft);font-size:14px;margin:10px 0 0;}
+  #stabilityBox{height:320px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">CSC 4740 / 6740 Data Mining — Team 16 — Spring 2026</div>
+  <h1>Seasonality-Aware Anomaly Detection in Multi-City Daily Weather Time Series</h1>
+  <p class="sub">Gunn Madan &amp; Harini Mohan · Department of Computer Science, Georgia State University</p>
+  <div class="meta">
+    <a href="https://github.com/REPLACE_WITH_HANDLE/Team16-WeatherAnomalyDetection">GitHub repo</a>
+    <a href="https://github.com/REPLACE_WITH_HANDLE/Team16-WeatherAnomalyDetection/blob/main/reports/Team_16_FinalReport.pdf">Final report (PDF)</a>
+    <a href="#explorer">Jump to explorer</a>
+  </div>
+</header>
+
+<section>
+  <h2><span class="num">01</span>What this is</h2>
+  <p class="lede">We built a Python pipeline that ingests ten years of NOAA Climate Data Online daily weather observations for Chicago, New York, and Los Angeles, then flags unusual days using three unsupervised detectors: a seasonal z-score, a robust MAD detector, and an Isolation Forest. All three are trained on 2016 to 2022 and evaluated on 2023 to April 2026 under the same time-based split. This page is a live demo that reads the exact same model output that appears in our final report, so you can click around and see what each detector flags for any city and variable.</p>
+  <p class="callout">Everything below is pre-computed from the same pipeline that produced the IEEE report. No server, no Python running in the browser, just static data generated by <span style="font-family:var(--mono);">src/run_pipeline.py</span>.</p>
+</section>
+
+<section>
+  <h2><span class="num">02</span>System architecture</h2>
+  <img class="arch" src="assets/architecture.png" alt="Pipeline architecture diagram">
+</section>
+
+<section id="explorer">
+  <h2><span class="num">03</span>Interactive anomaly explorer</h2>
+  <p class="lede soft">Pick a city, variable, and detector. The chart updates instantly and shows every flagged day as a crimson dot.</p>
+
+  <div class="panel">
+    <div class="controls">
+      <div class="group">
+        <span class="label">City</span>
+        <div class="seg" id="citySeg">
+          <button data-val="Chicago" class="on">Chicago</button>
+          <button data-val="NYC">NYC</button>
+          <button data-val="LA">LA</button>
+        </div>
+      </div>
+      <div class="group">
+        <span class="label">Variable</span>
+        <div class="seg" id="varSeg">
+          <button data-val="TMAX" class="on">TMAX</button>
+          <button data-val="TMIN">TMIN</button>
+          <button data-val="PRCP">PRCP</button>
+        </div>
+      </div>
+      <div class="group">
+        <span class="label">Detector</span>
+        <div class="seg" id="detSeg">
+          <button data-val="z" class="on">Z-score</button>
+          <button data-val="mad">MAD</button>
+          <button data-val="if">Isolation Forest</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-box">
+      <canvas id="mainChart"></canvas>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="k">Flagged days</div><div class="v" id="sFlagged">—</div><div class="vsmall" id="sFlaggedPct">—</div></div>
+      <div class="stat"><div class="k">Precision</div><div class="v" id="sPrec">—</div><div class="vsmall">vs. extreme 2% proxy</div></div>
+      <div class="stat"><div class="k">Recall</div><div class="v" id="sRec">—</div><div class="vsmall">of proxy events</div></div>
+      <div class="stat"><div class="k">F1</div><div class="v" id="sF1">—</div><div class="vsmall">harmonic mean</div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">04</span>Top flagged days <span class="pill" id="topLabel">city / variable</span></h2>
+  <p class="lede soft">Highest-magnitude seasonal z-score anomalies. These are the days each detector cares most about.</p>
+  <div class="panel" style="padding:10px 18px;">
+    <table>
+      <thead><tr><th>Date</th><th>Value</th><th>z</th><th style="width:55%;">Notes</th></tr></thead>
+      <tbody id="topBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">05</span>Detector agreement <span class="pill" id="agreeLabel">Jaccard, TMAX</span></h2>
+  <p class="lede soft">How often do pairs of detectors agree on the same day being an anomaly? Low numbers mean the methods surface fundamentally different events rather than redundant ones.</p>
+  <div class="two">
+    <div class="panel">
+      <table class="agreement" id="agreeTable"></table>
+    </div>
+    <div class="panel">
+      <p class="lede soft" style="margin-top:0;">What we see: Z-score and MAD overlap at around 0.26 on TMAX because they both model seasonal deviation and only differ in their scale estimator. Isolation Forest agrees with either at roughly 0.05 because it ranks points by their position in the joint (TMAX, TMIN, PRCP, temp_range, rolling_mean) feature space, not by deviation from a per-day-of-year baseline.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">06</span>Stability over time <span class="pill" id="stabLabel">TMAX</span></h2>
+  <p class="lede soft">Fraction of days flagged per year, per city, per method. The sharp rise after 2022 is visible across every combination.</p>
+  <div class="panel">
+    <div id="stabilityBox"><canvas id="stabChart"></canvas></div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">07</span>Takeaways</h2>
+  <p class="lede">No single detector wins on every variable. Isolation Forest is sharpest on precipitation, seasonal z-score is most aggressive on temperature recall, and MAD is the most conservative of the three. Detectors disagree strongly, which means they surface complementary notions of the word "anomaly," and a sensible production deployment would treat them as an ensemble rather than picking one. The sharp post-2022 rise in anomaly rates holds across every city and every method, which is consistent with the run of extreme-weather years we have actually lived through.</p>
+</section>
+
+<footer>
+  Built for CSC 4740/6740 — data from NOAA Climate Data Online — stations USW00094846 (Chicago O'Hare), USW00094728 (NYC Central Park), USW00093134 (LA Downtown USC).
+</footer>
+
+</div>
+
+<script>
+const CITIES = ['Chicago','NYC','LA'];
+const VARS = ['TMAX','TMIN','PRCP'];
+const DETECTORS = [
+  {k:'z',   label:'Z-score',           method:'Z-score'},
+  {k:'mad', label:'MAD',               method:'MAD'},
+  {k:'if',  label:'Isolation Forest',  method:'IsolationForest'}
+];
+const CITY_COLOR = {Chicago:'#d62728', NYC:'#1f77b4', LA:'#ff7f0e'};
+
+const state = { city:'Chicago', variable:'TMAX', detector:'z' };
+let payload = null;
+let mainChart = null;
+let stabChart = null;
+
+const EVENT_NOTES = {
+  '2025-05-30_LA_TMAX':'Southern California heat wave (record-breaking May highs)',
+  '2025-05-31_LA_TMAX':'Continuation of May 2025 SoCal heat wave',
+  '2024-01-16_Chicago_TMAX':'January 2024 Midwest cold wave',
+  '2025-05-10_LA_TMAX':'Early-May LA heat spike',
+  '2023-09-29_NYC_PRCP':'Historic Tri-State flood (5.48 in. single-day)',
+  '2023-07-02_Chicago_PRCP':'Chicago severe thunderstorm / flash flood',
+  '2024-09-09_LA_TMAX':'September 2024 LA heat spike',
+  '2023-02-27_LA_PRCP':'Unusually wet late-February LA day',
+  '2025-01-19_LA_TMIN':'Exceptionally cold LA morning',
+  '2024-08-21_NYC_TMIN':'Unusually cool mid-August NYC night'
+};
+
+async function boot(){
+  const resp = await fetch('data/payload.json');
+  payload = await resp.json();
+  hookControls();
+  render();
+}
+
+function hookControls(){
+  const wire = (id, key) => {
+    const el = document.getElementById(id);
+    el.querySelectorAll('button').forEach(b => {
+      b.addEventListener('click', () => {
+        el.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+        b.classList.add('on');
+        state[key] = b.dataset.val;
+        render();
+      });
+    });
+  };
+  wire('citySeg', 'city');
+  wire('varSeg', 'variable');
+  wire('detSeg', 'detector');
+}
+
+function render(){
+  const s = payload.series[state.city][state.variable];
+  const flagKey = state.detector;
+  const flags = s[flagKey];
+
+  const linePoints = s.dates.map((d,i) => ({x:d, y:s.values[i]}));
+  const anomPoints = s.dates.map((d,i) => flags[i] ? {x:d, y:s.values[i]} : null).filter(Boolean);
+
+  const flaggedCount = flags.filter(Boolean).length;
+  const total = flags.length;
+  document.getElementById('sFlagged').textContent = flaggedCount.toLocaleString();
+  document.getElementById('sFlaggedPct').textContent = total ? (100*flaggedCount/total).toFixed(2) + '%  of days' : '—';
+
+  const methodName = DETECTORS.find(d => d.k === flagKey).method;
+  const m = payload.metrics.find(r => r.variable === state.variable && r.method === methodName);
+  document.getElementById('sPrec').textContent = m ? Number(m.precision).toFixed(3) : '—';
+  document.getElementById('sRec').textContent  = m ? Number(m.recall).toFixed(3)    : '—';
+  document.getElementById('sF1').textContent   = m ? Number(m.f1).toFixed(3)        : '—';
+
+  const cityColor = CITY_COLOR[state.city];
+  const unit = state.variable === 'PRCP' ? 'inches' : '°F';
+  const methodLabel = DETECTORS.find(d => d.k === flagKey).label;
+
+  if (mainChart) mainChart.destroy();
+  mainChart = new Chart(document.getElementById('mainChart'), {
+    type:'line',
+    data:{
+      datasets:[
+        {
+          label: state.variable + ' (' + unit + ')',
+          data: linePoints,
+          parsing:false, borderColor: cityColor, backgroundColor: cityColor,
+          borderWidth:1, pointRadius:0, tension:0, order:2
+        },
+        {
+          label: methodLabel + ' anomaly',
+          type:'scatter',
+          data: anomPoints,
+          parsing:false,
+          backgroundColor:'#c0392b', borderColor:'#c0392b',
+          pointRadius:3.2, pointHoverRadius:5, order:1
+        }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'nearest', intersect:false},
+      scales:{
+        x:{type:'time', time:{unit:'year'}, grid:{color:'#efece4'},
+           ticks:{color:'#555', font:{family:'ui-monospace'}}},
+        y:{grid:{color:'#efece4'}, ticks:{color:'#555', font:{family:'ui-monospace'}},
+           title:{display:true, text:state.variable + ' (' + unit + ')', color:'#555'}}
+      },
+      plugins:{
+        legend:{display:true, labels:{color:'#333', boxWidth:12}},
+        title:{display:true, text: state.city + ' — ' + state.variable + ' — ' + methodLabel,
+               color:'#1a1a1a', font:{size:14, weight:'500'}},
+        tooltip:{callbacks:{
+          title: (items) => items[0].parsed.x ? new Date(items[0].parsed.x).toISOString().slice(0,10) : '',
+          label: (item) => item.dataset.label + ': ' + Number(item.parsed.y).toFixed(2)
+        }}
+      }
+    }
+  });
+
+  document.getElementById('topLabel').textContent = state.city + ' / ' + state.variable;
+  const top = (payload.topFlags[state.city][state.variable] || []).slice(0, 8);
+  const tbody = document.getElementById('topBody');
+  tbody.innerHTML = '';
+  for (const row of top){
+    const key = row.DATE + '_' + state.city + '_' + state.variable;
+    const note = EVENT_NOTES[key] || '';
+    const valStr = (state.variable === 'PRCP')
+      ? Number(row.value).toFixed(2) + ' in'
+      : Number(row.value).toFixed(1) + ' °F';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="mono">${row.DATE}</td><td class="mono">${valStr}</td><td class="mono">${Number(row.z).toFixed(2)}</td><td>${note}</td>`;
+    tbody.appendChild(tr);
+  }
+  if (top.length === 0){
+    tbody.innerHTML = '<tr><td colspan="4" style="color:#888;padding:14px;">No flagged rows for this combination.</td></tr>';
+  }
+
+  document.getElementById('agreeLabel').textContent = 'Jaccard, ' + state.variable;
+  const a = payload.agreement[state.variable];
+  const table = document.getElementById('agreeTable');
+  table.innerHTML = '';
+  const trh = document.createElement('tr');
+  trh.innerHTML = '<th></th>' + a.cols.map(c => '<th>' + c + '</th>').join('');
+  table.appendChild(trh);
+  a.rows.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    const cells = a.values[i].map(v => {
+      const n = Number(v);
+      const tint = Math.max(0, Math.min(1, n));
+      const bg = `rgba(20,61,107,${(0.06 + tint*0.55).toFixed(3)})`;
+      const color = tint > 0.55 ? '#fff' : '#1a1a1a';
+      return `<td class="cell" style="background:${bg};color:${color};">${n.toFixed(2)}</td>`;
+    }).join('');
+    tr.innerHTML = '<th>' + r + '</th>' + cells;
+    table.appendChild(tr);
+  });
+
+  document.getElementById('stabLabel').textContent = state.variable;
+  renderStability();
+}
+
+function renderStability(){
+  const rows = payload.stability[state.variable];
+  const methods = [...new Set(rows.map(r => r.method))];
+  const cities = [...new Set(rows.map(r => r.CITY))];
+  const years = [...new Set(rows.map(r => r.year))].sort();
+
+  const datasets = [];
+  const dashMap = {Chicago:[], NYC:[4,3], LA:[2,2]};
+  const colorMap = {'Z-score':'#143d6b', 'MAD':'#8e6a12', 'IsolationForest':'#7a1f1f'};
+  for (const m of methods){
+    for (const c of cities){
+      const pts = years.map(y => {
+        const row = rows.find(r => r.method === m && r.CITY === c && r.year === y);
+        return { x: y, y: row ? row.anomaly_rate : null };
+      });
+      datasets.push({
+        label: m + ' · ' + c,
+        data: pts,
+        parsing: false,
+        borderColor: colorMap[m] || '#333',
+        backgroundColor: colorMap[m] || '#333',
+        borderDash: dashMap[c] || [],
+        borderWidth: 1.5,
+        pointRadius: 2.5,
+        tension: 0.1
+      });
+    }
+  }
+
+  if (stabChart) stabChart.destroy();
+  stabChart = new Chart(document.getElementById('stabChart'), {
+    type:'line',
+    data:{ datasets },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      scales:{
+        x:{type:'linear', grid:{color:'#efece4'}, ticks:{color:'#555', stepSize:1, font:{family:'ui-monospace'}},
+           title:{display:true, text:'Year', color:'#555'}},
+        y:{grid:{color:'#efece4'}, ticks:{color:'#555', font:{family:'ui-monospace'},
+           callback: v => (v*100).toFixed(1) + '%'},
+           title:{display:true, text:'Fraction flagged', color:'#555'}}
+      },
+      plugins:{
+        legend:{labels:{color:'#333', boxWidth:12, font:{size:11}}},
+        title:{display:true, text: 'Annual anomaly rate by method and city — ' + state.variable,
+               color:'#1a1a1a', font:{size:14, weight:'500'}}
+      }
+    }
+  });
+}
+
+boot();
+</script>
+</body>
+</html>
