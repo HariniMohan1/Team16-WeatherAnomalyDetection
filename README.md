@@ -114,44 +114,6 @@ To execute them headlessly from the command line:
 jupyter nbconvert --to notebook --execute --inplace notebooks/*.ipynb
 ```
 
----
-
-## Repository layout
-
-```
-Team16-WeatherAnomalyDetection/
-├── README.md
-├── requirements.txt
-├── data/
-│   ├── OriginalWeatherDataset.csv           # raw NOAA pull
-│   ├── clean_weather_data.csv               # generated
-│   ├── model_output_data.csv                # generated
-│   └── model_output_full.csv                # generated
-├── src/
-│   ├── data_cleaning.py                     # city normalization, filtering
-│   ├── feature_engineering.py               # rolling stats, seasonal keys, time split
-│   ├── models.py                            # z-score, MAD, Isolation Forest
-│   ├── evaluation.py                        # proxy labels, Jaccard, stability
-│   ├── visualize.py                         # matplotlib/seaborn plots
-│   └── run_pipeline.py                      # end-to-end driver
-├── notebooks/
-│   ├── 01_data_cleaning_and_EDA.ipynb
-│   ├── 02_modeling.ipynb
-│   └── 03_evaluation.ipynb
-├── reports/
-│   ├── Team_16_Proposal.pdf                 # Phase 1
-│   ├── Team_16_MidProjectReport.pdf         # Phase 2
-│   ├── Team_16_FinalReport.pdf              # Phase 3, IEEE format
-│   └── Team_16_FinalReport.docx             # editable source
-├── outputs/
-│   ├── figures/                             # generated PNGs
-│   └── tables/                              # generated CSVs
-└── demo/
-    └── demo_script.md                       # ~20 min demo walkthrough
-```
-
----
-
 ## Data source
 
 NOAA National Centers for Environmental Information, Climate Data Online (CDO): https://www.ncei.noaa.gov/cdo-web/
